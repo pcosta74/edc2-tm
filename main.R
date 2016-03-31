@@ -6,7 +6,7 @@ library(tm)
 
 read.data <- function(filepath, encoding="") {
   data <- read.csv(.DATA.FILEPATH, fileEncoding = encoding, 
-                   blank.lines.skip=T, header=T, 
+                   blank.lines.skip=T, header=T, sep=";",
                    stringsAsFactors=F, strip.white=T)
   #iconv(data, encoding, 'UTF-32')
 } # End read.data
@@ -15,30 +15,41 @@ read.data <- function(filepath, encoding="") {
 # *************************************************
 # Main
 
+# Properties
+.DATA.ENCODING <- 'ISO-8859-1'
+.DATA.FILEPATH <- file.path('.','dset_FPessoa_ALL_v2.csv')
+.DTMX.FILEPATH <- file.path('.','docterm_matrix.csv')
 
 # Load data
-.DATA.FILEPATH <- file.path('.','dset_FPessoa_ALL_v2.csv')
-FernandoPessoa <- read.data(.DATA.FILEPATH, 'ISO-8859-1')
+data <- read.data(.DATA.FILEPATH, .DATA.ENCODING)
 
 # Create corpus
 mapping <- list(id = "Autor", content = "Poema")
 readTab <- readTabular(mapping)
-corpus  <- Corpus(DataframeSource(FernandoPessoa), 
+corpus  <- Corpus(DataframeSource(data), 
                   readerControl = list(reader = readTab, language = "pt"))
+classes <- data[,1]
+
+# Garbage collection
+rm(data)
 
 # Pre-processing
 skipWords <- function(x) removeWords(x, stopwords('portuguese'))
-rmvAccent <- function(x) chartr('àáâãéêíóõôúç','aaaaeeiooouc',x)
-functions <- list(content_transformer(tolower), #content_transformer(rmvAccent),
+functions <- list(content_transformer(tolower),
                   removePunctuation, removeNumbers, stripWhitespace, skipWords)
-corpus.p  <- tm_map(corpus, FUN = tm_reduce, tmFuns = functions)
+corpus    <- tm_map(corpus, FUN = tm_reduce, tmFuns = functions)
 
 
 # Create document term matrix
 options <- list(minWordLength = 2,  minDocFreq=2, stemDocument=T, weighting=weightTfIdf)
-dtm.mx  <- DocumentTermMatrix(corpus.p, control = options)
+dtm.mx  <- DocumentTermMatrix(corpus, control = options)
 dtm.mx  <- removeSparseTerms(dtm.mx, 0.99)
-# inspect(dtm.mx)
 
-# Find top 10 frequent terms 
-freqterms10 <- findFreqTerms(dtm.mx, 10, 10)
+dtm.df  <- as.data.frame(as.matrix(dtm.mx))
+rownames(dtm.df) <- 1:nrow(dtm.mx)
+dtm.df  <- cbind(dtm.df, classes)
+
+write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, row.names=F)
+
+# # Find top 10 frequent terms 
+# # freqterms10 <- findFreqTerms(dtm.mx, 10, 10)
