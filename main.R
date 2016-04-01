@@ -1,55 +1,67 @@
-library(tm)
+library('rpart')
+
+source(file.path('.','cross-validation.R'))
+source(file.path('.','information.R'))
+source(file.path('.','utils.R'))
+source(file.path('.','text-mining.R'))
 
 # *************************************************
-# Read data from CSV
-# return: data.frame with UTF-16 encoding
+# Properties
 
-read.data <- function(filepath, encoding="") {
-  data <- read.csv(.DATA.FILEPATH, fileEncoding = encoding, 
-                   blank.lines.skip=T, header=T, sep=";",
-                   stringsAsFactors=F, strip.white=T)
-  #iconv(data, encoding, 'UTF-32')
-} # End read.data
+.DATA.ENCODING <- 'ISO-8859-1'
+.DATA.LANGUAGE <- 'portuguese'
+.DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
+.DTMX.FILEPATH <- file.path('.','data','docterm_matrix.csv')
+
+
+# *************************************************
+# Split dataset into training and test datasets
+
+split.dataset <- function(data, n, class.col=ncol(data), random=F) {
+  # Get data number of rows
+  last.row <- nrow(data)
+  
+  # Test n parameter
+  if(n>=last.row)
+    stop('Invalid ',sQuote('n'), ' value: expected value < ',last.row)
+  
+  # Randomize lines
+  if(random)
+    data <- data[sample(1:last.row),]
+
+  # Generate the training data with the appropriate lines of data
+  train <- data[1:n, ]
+  # Generate the test data with the appropriate lines of data
+  test  <- data[n+1:last.row, -class.col]
+  
+  return(list(train=train, test=test))
+} # End function split.dataset
 
 
 # *************************************************
 # Main
 
-# Properties
-.DATA.ENCODING <- 'ISO-8859-1'
-.DATA.FILEPATH <- file.path('.','dset_FPessoa_ALL_v2.csv')
-.DTMX.FILEPATH <- file.path('.','docterm_matrix.csv')
-
 # Load data
-data <- read.data(.DATA.FILEPATH, .DATA.ENCODING)
+data  <- read.data(.DATA.FILEPATH, .DATA.ENCODING)
 
 # Create corpus
 mapping <- list(id = "Autor", content = "Poema")
-readTab <- readTabular(mapping)
-corpus  <- Corpus(DataframeSource(data), 
-                  readerControl = list(reader = readTab, language = "pt"))
-classes <- data[,1]
+corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE)
+
+# Create document term matrix dataframe
+dtm.df <- create.dtm.dataframe(corpus, sparse=0.99, minWordLength=2, minDocFreq=2, 
+                               stemDocument=T, weighting=weightTfIdf)
 
 # Garbage collection
-rm(data)
+rm(list=c('data', 'mapping', 'corpus'))
 
-# Pre-processing
-skipWords <- function(x) removeWords(x, stopwords('portuguese'))
-functions <- list(content_transformer(tolower),
-                  removePunctuation, removeNumbers, stripWhitespace, skipWords)
-corpus    <- tm_map(corpus, FUN = tm_reduce, tmFuns = functions)
-
-
-# Create document term matrix
-options <- list(minWordLength = 2,  minDocFreq=2, stemDocument=T, weighting=weightTfIdf)
-dtm.mx  <- DocumentTermMatrix(corpus, control = options)
-dtm.mx  <- removeSparseTerms(dtm.mx, 0.99)
-
-dtm.df  <- as.data.frame(as.matrix(dtm.mx))
-rownames(dtm.df) <- 1:nrow(dtm.mx)
-dtm.df  <- cbind(dtm.df, classes)
-
+# Write as CVS for DTM dataframe for 3rd party testing
 write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, row.names=F)
 
-# # Find top 10 frequent terms 
-# # freqterms10 <- findFreqTerms(dtm.mx, 10, 10)
+# create formula
+c.form <- create.dtm.formula(dtm.df)
+
+# Decision tree
+dec.tree <- rpart(class.f, dtm.df)
+
+

@@ -21,3 +21,15 @@ guess.encoding <- function(filename, nrows=10, show.prog. = T) {
   maybe.ok <- sapply(x, function(x) isTRUE(all.equal(dim(x)[1], nrows)))
   code.pages[maybe.ok]
 } # End function guess.encoding
+
+
+# *************************************************
+# Read data from CSV
+# return: data.frame with UTF-16 encoding
+
+read.data <- function(filepath, encoding='UTF-8') {
+  data <- read.csv(filepath, fileEncoding = encoding, 
+                   blank.lines.skip=T, header=T, sep=";",
+                   stringsAsFactors=F, strip.white=T)
+  #iconv(data, encoding, 'UTF-32')
+} # End read.data
