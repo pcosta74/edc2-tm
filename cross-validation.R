@@ -1,3 +1,9 @@
+library(class)
+library(rpart)
+library(nnet)
+library(e1071)
+library(RWeka)
+
 # *************************************************
 # Generate sample sizes for k-fold cross validation
 # on a dataset of size n
@@ -36,27 +42,75 @@ cv.testing <- function(n, k=10) {
 # *************************************************
 # Run k-fold cross validation with an arbitrary classifier
 # classifier: function which takes a training set, 
-#             a test set, and a class column index
+#             a test set and a formula
 # data: data frame where each column is an attribute and
 #       each row is an observation,
-# class.col: column index for the attribute to be predicted
+# formula: the formula for the classifier
+# folds: number of folds
 
-cross.validation <- function(classifier, data, k=10, 
-                             class.col=ncol(data), ...) {
-  result <- list()
+cross.validation <- function(CLASS.FUN, formula, data, folds=10, simplify=T, ...) {
   test.indices <- cv.testing(dim(data)[1])
-  for (i in 1:k) {
+  class  <- all.vars(update(formula, .~0))
+  result <- list()
+  for (i in 1:folds) {
     test.ndx <- test.indices[[i]]
     train <- data[-test.ndx,]
     test  <- data[test.ndx,]
-    result[[i]] <- classifier(train, test, class)
+    result[[i]] <- CLASS.FUN(formula, train, test, class, ...)
   }
   return(result)
-}
+} # End function cross.validation
 
-classifier.naivebayes = function(train, test, class) {
-  # simple example of a classifier
-  # requires library(e1071)
-  model = naiveBayes(train[,-class], train[,class])
-  table(predict(model, test[,-class]), test[,class])
-}
+
+# *************************************************
+# Decision Tree
+
+cv.rpart <- function(formula, train, test, class, ...) {
+  model <- rpart(formula, train, ...)
+  pred  <- predict(model, test, type=class)
+  return(table(pred, test[[class]]))
+} # End function cv.rpart
+
+
+# *************************************************
+# Neural Network
+
+cv.nnet <- function(formula, train, test, class, ...) {
+  model <- nnet(formula, train, ...)
+  pred  <- predict(model, test, type=class)
+  return(table(pred, test[[class]]))
+} # End function cv.nnet
+
+
+# *************************************************
+# Support Vector Machine
+
+cv.svm <- function(formula, train, test, class, ...) {
+  model <- svm(formula, train, ...)
+  pred  <- predict(model, test, type=class)
+  return(table(pred, test[[class]]))
+} # End function cv.svm
+
+# *************************************************
+# Naive Bayes
+
+cv.naivebayes <- function(formula, train, test, class, use.weka=F, ...) {
+  if(use.weka) {
+    wekaNaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
+    model <- wekaNaiveBayes(formula, train, ...)
+  } else {
+    model <- naiveBayes(formula, train, ...)
+  }
+  pred  <- predict(model, test, type=class)
+  return(table(pred, test[[class]]))
+} # End function cv.naivebayes
+
+# *************************************************
+# K-Nearest Neighbour
+
+cv.knn <- function(formula, train, test, class, k=3, ...) {
+  pred  <- knn(subset(train, select=-c(class)),
+               subset(test, select=-c(class)),
+               train[,class], k, ...)
+  return(table(pred, test[,class]))
+} # End function cv.knn
