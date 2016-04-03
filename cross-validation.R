@@ -68,7 +68,7 @@ cross.validation <- function(CLASS.FUN, formula, data, folds=10, simplify=T, ...
 cv.rpart <- function(formula, train, test, class, ...) {
   model <- rpart(formula, train, ...)
   pred  <- predict(model, test, type=class)
-  return(table(pred, test[[class]]))
+  return(table(test[[class]],pred, dnn=list('actual','pred')))
 } # End function cv.rpart
 
 
@@ -78,7 +78,7 @@ cv.rpart <- function(formula, train, test, class, ...) {
 cv.nnet <- function(formula, train, test, class, ...) {
   model <- nnet(formula, train, ...)
   pred  <- predict(model, test, type=class)
-  return(table(pred, test[[class]]))
+  return(table(test[[class]], pred, dnn=list('actual','pred')))
 } # End function cv.nnet
 
 
@@ -88,7 +88,7 @@ cv.nnet <- function(formula, train, test, class, ...) {
 cv.svm <- function(formula, train, test, class, ...) {
   model <- svm(formula, train, ...)
   pred  <- predict(model, test, type=class)
-  return(table(pred, test[[class]]))
+  return(table(test[[class]], pred, dnn=list('actual','pred')))
 } # End function cv.svm
 
 # *************************************************
@@ -102,7 +102,7 @@ cv.naivebayes <- function(formula, train, test, class, use.weka=F, ...) {
     model <- naiveBayes(formula, train, ...)
   }
   pred  <- predict(model, test, type=class)
-  return(table(pred, test[[class]]))
+  return(table(test[[class]], pred, dnn=list('actual','pred')))
 } # End function cv.naivebayes
 
 # *************************************************
@@ -112,5 +112,5 @@ cv.knn <- function(formula, train, test, class, k=3, ...) {
   pred  <- knn(subset(train, select=-c(class)),
                subset(test, select=-c(class)),
                train[,class], k, ...)
-  return(table(pred, test[,class]))
+  return(table(test[[class]], pred, dnn=list('actual','pred')))
 } # End function cv.knn

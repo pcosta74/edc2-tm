@@ -27,12 +27,19 @@ guess.encoding <- function(filename, nrows=10, show.prog. = T) {
 # Read data from CSV
 # return: data.frame with UTF-16 encoding
 
-read.data <- function(filepath, encoding='UTF-8') {
+read.data <- function(filepath, encoding='UTF-8', trace=F) {
   data <- read.csv(filepath, fileEncoding = encoding, 
                    blank.lines.skip=T, header=T, sep=";",
                    stringsAsFactors=F, strip.white=T)
+  
   if(encoding != 'ISO-8859-1')
     data <- iconv(data, encoding, 'ISO-8859-1')
+
+  if(trace) {
+    message(sQuote(basename(filepath)), ': ', format(object.size(data)), ', ', 
+            paste(dim(data), c('rows','cols'), collapse=' x '))
+  }
+
   return(data)
 } # End read.data
 
@@ -40,10 +47,9 @@ read.data <- function(filepath, encoding='UTF-8') {
 # *************************************************
 # Make string "Camel Case"
 
-camel.case<-function(x=as.character()) {
+camel.case<-function(x) {
   gsub('(\\w)(\\w*)', '\\U\\1\\L\\2', as.character(x), perl=TRUE)
 } # End camel.case
-
 
 # *************************************************
 # Create enumeration

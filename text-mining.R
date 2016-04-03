@@ -1,9 +1,10 @@
 library('tm')
 
+
 # *************************************************
 # Create corpus and apply pre-processing functions
 
-create.corpus <- function(dataframe, mapping, language="en", pre.process=T) {
+create.corpus <- function(dataframe, mapping, language="en", pre.process=T, trace=F) {
   # Create corpus
   readTab <- readTabular(mapping)
   corpus  <- Corpus(DataframeSource(dataframe), 
@@ -18,6 +19,19 @@ create.corpus <- function(dataframe, mapping, language="en", pre.process=T) {
     corpus    <- tm_map(corpus, FUN = tm_reduce, tmFuns = functions)
   }
   
+  if(trace) {
+    hst <- hist(sapply(corpus, function(c) sapply(strsplit(c$content, "\\s+"), length)), plot=F)
+    dst <- paste(hst$breaks[-length(hst$breaks)], hst$breaks[-1], sep="-")
+    nms <- unique(names(corpus))
+    message('No. documents: ',length(corpus),'\n',
+            'Distinct ids: ',length(nchar(nms)),'\n',
+            paste(' ',nms, collapse="\n"),'\n',
+            'Word count distribution:','\n',
+            paste(format(dst, width=max(nchar(dst))+1, justify="right"),
+                  format(hst$count, width=max(nchar(hst$count))+1, justify="right"),
+                  sep=':', collapse="\n"))
+  }
+  
   # return corpus
   return(corpus)
 } # End function create.corpus
@@ -26,7 +40,7 @@ create.corpus <- function(dataframe, mapping, language="en", pre.process=T) {
 # *************************************************
 # Create Document Term Matrix as a dataframe
 
-create.dtm.dataframe <- function(corpus, sparse=0.95, min.info = 0.01,  ...) {
+create.dtm.dataframe <- function(corpus, sparse=0.95, min.info=0.01, trace=F, ...) {
   # Create document term matrix
   options <- list(...)
   dtm.mx  <- DocumentTermMatrix(corpus, control = options)
@@ -45,7 +59,10 @@ create.dtm.dataframe <- function(corpus, sparse=0.95, min.info = 0.01,  ...) {
   
   # Prune non-informtive terms
   if(!missing(min.info))
-    dtm.mf <- dtm.mf[,findInformativeTerms(dtm.mf, min.info)]
+    dtm.df <- dtm.df[,findInformativeTerms(dtm.df, min.info)]
+  
+  if(trace) {
+  }
   
   return(dtm.df)
 } # End function create.dtm.dataframe
