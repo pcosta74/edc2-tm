@@ -40,7 +40,7 @@ split.dataset <- function(data, n, class.col=ncol(data), random=F) {
 # *************************************************
 # Build cube of 2x2 matrices per class
 
-build.cube <- function(x) {
+as.array.cv.list <- function(x) {
   clas.lbls <- rownames(x[[1]])
   mtxs.lbls <- c('TRUE','FALSE')
   arr.dims  <- c(length(x), length(clas.lbls), 
@@ -53,9 +53,36 @@ build.cube <- function(x) {
       cube[i,j,,] <- c(x[[i]][j,j], sum(x[[i]][-j,j]), sum(x[[i]][j,-j]), sum(x[[i]][-j,-j]))
     }
   }
-
   return(cube)
-} # End function build.cube
+} # End function as.cube
+
+
+# *************************************************
+# Get statistical measures of prediction
+
+get.measures <- function(a) {
+  dims <- dim(a)
+  measures <- sapply(seq(dims[2]), function(j) {
+    class.meas <- sapply(seq(dims[1]), function(i) {
+      tp <- a[i,j,1,1]; fn <- a[i,j,2,1]
+      fp <- a[i,j,1,2]; tn <- a[i,j,2,2]
+      
+      ac <- (tp+tn)/(tp+fp+fn+tn)
+      pr <- tp/(tp+fp)
+      rc <- tp/(tp+fn)
+      f1 <- 2*pr*rc/(pr+rc)
+      
+      c(accuracy=ifelse(is.na(ac),0,ac), 
+        precision=ifelse(is.na(pr),0,pr),
+        recall=ifelse(is.na(rc),0,rc),
+        f1=ifelse(is.na(f1),0,f1))
+    })
+    apply(class.meas, 1, mean)
+  })
+  measures <- cbind(measures,apply(measures,1,mean))
+  colnames(measures) <- c(colnames(a),'Macro')
+  return(measures)
+} # End function get.measures
 
 
 # *************************************************
@@ -87,24 +114,23 @@ c.form <- create.dtm.formula(dtm.df)
 # List of classifiers to use
 .CLASSIFIERS <- list(
   'RPART'   = list(cv.rpart, c.form, dtm.df),
-#   'NNET'    = list(cv.nnet, c.form, dtm.df, size=2, trace=F, rang=0.1,
-#                    decay=5e-4, maxit=200, MaxNWts = 2000),
-#   'SVM'     = list(cv.svm, c.form, dtm.df),
-#   'RAD.SVM' = list(cv.svm, c.form, dtm.df, kernel='radial', cost=50),
-#   'NBAYES'  = list(cv.naivebayes, c.form, dtm.df),
-#   'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df,use.weka=T),
-#   '1NN'     = list(cv.knn, c.form, dtm.df, k=1),
-#   'KNN'     = list(cv.knn, c.form, dtm.df, k=3),
-  NULL
+  'NNET'    = list(cv.nnet, c.form, dtm.df, size=2, trace=F, rang=0.1,
+                   decay=5e-4, maxit=200, MaxNWts = 2000),
+  'SVM'     = list(cv.svm, c.form, dtm.df),
+  'RAD.SVM' = list(cv.svm, c.form, dtm.df, kernel='radial', cost=50),
+  'NBAYES'  = list(cv.naivebayes, c.form, dtm.df),
+  'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df,use.weka=T),
+  '1NN'     = list(cv.knn, c.form, dtm.df, k=1),
+  'KNN'     = list(cv.knn, c.form, dtm.df, k=3)
 )
 
-
+# For every classifier in list
 for(classif in names(.CLASSIFIERS)) {
-  # Run classifiers
+  # Run classifier
   cat('Classifier:', classif, '\n')
   results <- do.call(cross.validation,.CLASSIFIERS[[classif]])
   
-  cat('Getting statistics','\n')
-  cube <- build.cube(results)
-  print(cube)
+  cat('Collect statistics','\n')
+  measures <- get.measures(as.array(results))
+  print(measures)
 }

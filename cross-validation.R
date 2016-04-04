@@ -58,6 +58,7 @@ cross.validation <- function(CLASS.FUN, formula, data, folds=10, simplify=T, ...
     test  <- data[test.ndx,]
     result[[i]] <- CLASS.FUN(formula, train, test, class, ...)
   }
+  class(result) <- 'cv.list'
   return(result)
 } # End function cross.validation
 
