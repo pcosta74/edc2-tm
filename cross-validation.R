@@ -67,9 +67,14 @@ cross.validation <- function(CLASS.FUN, formula, data, folds=10, simplify=T, ...
 # Decision Tree
 
 cv.rpart <- function(formula, train, test, class, ...) {
+  lvls  <- levels(train[[class]])
   model <- rpart(formula, train, ...)
-  pred  <- predict(model, test, type=class)
-  return(table(test[[class]],pred, dnn=list('actual','pred')))
+  pred  <- predict(model, test, type=class) 
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
 } # End function cv.rpart
 
 
@@ -77,9 +82,14 @@ cv.rpart <- function(formula, train, test, class, ...) {
 # Neural Network
 
 cv.nnet <- function(formula, train, test, class, ...) {
+  lvls  <- levels(train[[class]])
   model <- nnet(formula, train, ...)
   pred  <- predict(model, test, type=class)
-  return(table(test[[class]], pred, dnn=list('actual','pred')))
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
 } # End function cv.nnet
 
 
@@ -87,15 +97,21 @@ cv.nnet <- function(formula, train, test, class, ...) {
 # Support Vector Machine
 
 cv.svm <- function(formula, train, test, class, ...) {
+  lvls  <- levels(train[[class]])
   model <- svm(formula, train, ...)
   pred  <- predict(model, test, type=class)
-  return(table(test[[class]], pred, dnn=list('actual','pred')))
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
 } # End function cv.svm
 
 # *************************************************
 # Naive Bayes
 
 cv.naivebayes <- function(formula, train, test, class, use.weka=F, ...) {
+  lvls  <- levels(train[[class]])
   if(use.weka) {
     wekaNaiveBayes <- make_Weka_classifier("weka/classifiers/bayes/NaiveBayes")
     model <- wekaNaiveBayes(formula, train, ...)
@@ -103,15 +119,24 @@ cv.naivebayes <- function(formula, train, test, class, use.weka=F, ...) {
     model <- naiveBayes(formula, train, ...)
   }
   pred  <- predict(model, test, type=class)
-  return(table(test[[class]], pred, dnn=list('actual','pred')))
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
 } # End function cv.naivebayes
 
 # *************************************************
 # K-Nearest Neighbour
 
 cv.knn <- function(formula, train, test, class, k=3, ...) {
+  lvls  <- levels(train[[class]])
   pred  <- knn(subset(train, select=-c(class)),
                subset(test, select=-c(class)),
                train[,class], k, ...)
-  return(table(test[[class]], pred, dnn=list('actual','pred')))
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
 } # End function cv.knn

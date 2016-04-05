@@ -9,7 +9,7 @@ source(file.path('.','text-mining.R'))
 # Configuration
 
 .DATA.TOKENIZE <- 'words'
-.DATA.WEIGHTIN <- 'tfidf'
+.DATA.WEIGHTIN <- 'tf'
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
 .DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
@@ -118,7 +118,7 @@ corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, trace=F)
 cat('Create document term matrix','\n')
 dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
                                minWordLength=2, minDocFreq=2, 
-                               stemDocument=TRUE, weighting=weightTfIdf)
+                               stemDocument=TRUE, weighting=weightTf)
 
 # Create formula
 c.form <- create.dtm.formula(dtm.df)
@@ -156,7 +156,7 @@ for(i in 1:ncol(freq)) {
 }
 
 # Garbage collection
-# rm(list=c('data', 'mapping', 'corpus', 'freq'))
+rm(list=c('data', 'mapping', 'corpus', 'freq'))
 
 # Write as CVS for DTM dataframe for 3rd party testing
 write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, 
