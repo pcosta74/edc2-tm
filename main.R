@@ -6,15 +6,25 @@ source(file.path('.','utils.R'))
 source(file.path('.','text-mining.R'))
 
 # *************************************************
+# Enumerations
+.WEIGH.FUN <- enum('tf', 'tfidf', 'bin', 'smart') 
+.TOKEN.FUN <- enum('words', 'ngram', 'sents')
+
+# *************************************************
 # Configuration
 
-.DATA.TOKENIZE <- 'words'
-.DATA.WEIGHTIN <- 'tf'
+.DATA.TOKENIZE <- match.enum('words',.TOKEN.FUN)
+.DATA.WEIGHTIN <- match.enum('tf',.WEIGH.FUN)
+
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
 .DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
+.CLDW.FILEPATH <- file.path('.','data',
+                            paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'%AUTHOR%_cloudword.png',sep="-"))
 .DTMX.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'docterm_matrix.csv',sep="-"))
+.FREQ.FILEPATH <- file.path('.','data',
+                            paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'term_freq.csv',sep="-"))
 .RPRT.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'measures.csv',sep="-"))
 
@@ -108,17 +118,33 @@ data <- read.data(.DATA.FILEPATH, .DATA.ENCODING, trace=F)
 # Create corpus
 cat('Create corpus','\n')
 mapping <- list(id = "Autor", content = "Poema")
-corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, trace=F)
+corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, trace=F, stem=T)
 
-# TO TEST
-# WEIGHTING: weightTf, weightTfIdf, weightBin, weightSMART
-# TOKENIZE:  words, ngram, sents
+# Decide on the weighting method
+weight.FUN <- switch(
+  as.character(.DATA.WEIGHTIN),
+  'tf'=weightTf,
+  'tfidf'=weightTfIdf,
+  'bin'=weightBin,
+  'smart'=weightSmart,
+  stop('Invalid weighting function')
+)
+
+# Decide on the weighting method
+token.FUN <- switch(
+  as.character(.DATA.TOKENIZE),
+  'words'=words,
+  'ngram'=ngram.tokenizer,
+  'sents'=stems,
+  stop('Invalid tokenize function')
+)
 
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
-dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
+dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, stem=T,
                                minWordLength=2, minDocFreq=2, 
-                               stemDocument=TRUE, weighting=weightTf)
+                               stemDocument=TRUE, weighting=weight.FUN,
+                               tokenize=token.FUN)
 
 # Create formula
 c.form <- create.dtm.formula(dtm.df)
@@ -127,6 +153,10 @@ c.form <- create.dtm.formula(dtm.df)
 freq <- aggregate(. ~ class, data = dtm.df, sum)
 freq <- as.data.frame(t(freq[,-1]))
 colnames(freq) <- levels(dtm.df$class)
+
+# Write as CVS the frequency table for 3rd party testing
+write.csv2(dtm.df, file=.FREQ.FILEPATH, fileEncoding=.DATA.ENCODING, 
+           row.names=F)
 
 layout(matrix(c(1, 2), nrow=2), heights=c(.5, 10))
 par(oma=c(0,0,4,0), mai=rep(0,4))
@@ -140,19 +170,25 @@ for(i in 1:ncol(freq)) {
   cat('50 most frequent words for', colnames(freq)[i],'\n')
   print(head(clas.freq, 50))
 
+
   # Draw wordcloud
   tryCatch({
+    filename <- gsub('%AUTHOR%',abbreviate(colnames(freq)[i],2),
+                     .CLDW.FILEPATH)
+    png(filename, antialias='subpixel',width=640, height=640, res=100)
+    
     plot.new()
     title(colnames(freq)[i], outer=T)
     wordcloud(words = clas.freq$word, freq = clas.freq$freq, min.freq = 1,
               max.words=100, random.order=FALSE, rot.per=0.35, 
               colors=brewer.pal(8, "Dark2"))
+    
+    dev.off()
   },
   error=function(err){
   },
   warning=function(wrn) {
   })
-
 }
 
 # Garbage collection
