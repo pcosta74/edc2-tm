@@ -1,4 +1,4 @@
-library(parallel)
+library(wordcloud)
 
 source(file.path('.','cross-validation.R'))
 source(file.path('.','information.R'))
@@ -8,10 +8,23 @@ source(file.path('.','text-mining.R'))
 # *************************************************
 # Configuration
 
+.DATA.TOKENIZE <- 'words'
+.DATA.WEIGHTIN <- 'tfidf'
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
 .DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
-.DTMX.FILEPATH <- file.path('.','data','docterm_matrix.csv')
+.DTMX.FILEPATH <- file.path('.','data',
+                            paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'docterm_matrix.csv',sep="-"))
+.RPRT.FILEPATH <- file.path('.','data',
+                            paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'measures.csv',sep="-"))
+
+
+# *************************************************
+# N-gram tokenizer
+ngram.tokenizer <- function(x,n=2) {
+  require(RWeka)
+  NGramTokenizer(x, Weka_control(min = n, max = n))
+} # End function ngram.tokenizer
 
 
 # *************************************************
@@ -97,19 +110,57 @@ cat('Create corpus','\n')
 mapping <- list(id = "Autor", content = "Poema")
 corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, trace=F)
 
+# TO TEST
+# WEIGHTING: weightTf, weightTfIdf, weightBin, weightSMART
+# TOKENIZE:  words, ngram, sents
+
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
-dtm.df <- create.dtm.dataframe(corpus, sparse=0.99, trace=T, minWordLength=2, minDocFreq=2, 
-                               stemDocument=T, weighting=weightTfIdf)
-
-# Garbage collection
-rm(list=c('data', 'mapping', 'corpus'))
-
-# Write as CVS for DTM dataframe for 3rd party testing
-write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, row.names=F)
+dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
+                               minWordLength=2, minDocFreq=2, 
+                               stemDocument=TRUE, weighting=weightTfIdf)
 
 # Create formula
 c.form <- create.dtm.formula(dtm.df)
+
+# Determine word frequences
+freq <- aggregate(. ~ class, data = dtm.df, sum)
+freq <- as.data.frame(t(freq[,-1]))
+colnames(freq) <- levels(dtm.df$class)
+
+layout(matrix(c(1, 2), nrow=2), heights=c(.5, 10))
+par(oma=c(0,0,4,0), mai=rep(0,4))
+for(i in 1:ncol(freq)) {
+  # Sort frequences by class
+  clas.freq <- matrix(freq[,i],dimnames=list(rownames(freq),NULL))
+  
+  clas.freq <- sort(rowSums(clas.freq), decreasing=TRUE)
+  clas.freq <- data.frame(word=names(clas.freq), freq=clas.freq,
+                          row.names = NULL)
+  cat('50 most frequent words for', colnames(freq)[i],'\n')
+  print(head(clas.freq, 50))
+
+  # Draw wordcloud
+  tryCatch({
+    plot.new()
+    title(colnames(freq)[i], outer=T)
+    wordcloud(words = clas.freq$word, freq = clas.freq$freq, min.freq = 1,
+              max.words=100, random.order=FALSE, rot.per=0.35, 
+              colors=brewer.pal(8, "Dark2"))
+  },
+  error=function(err){
+  },
+  warning=function(wrn) {
+  })
+
+}
+
+# Garbage collection
+# rm(list=c('data', 'mapping', 'corpus', 'freq'))
+
+# Write as CVS for DTM dataframe for 3rd party testing
+write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, 
+           row.names=F)
 
 # List of classifiers to use
 .CLASSIFIERS <- list(
@@ -124,13 +175,23 @@ c.form <- create.dtm.formula(dtm.df)
   'KNN'     = list(cv.knn, c.form, dtm.df, k=3)
 )
 
+report <- data.frame()
 # For every classifier in list
 for(classif in names(.CLASSIFIERS)) {
   # Run classifier
   cat('Classifier:', classif, '\n')
   results <- do.call(cross.validation,.CLASSIFIERS[[classif]])
   
+  # Get statistics
   cat('Collect statistics','\n')
   measures <- get.measures(as.array(results))
-  print(measures)
+  
+  tmp.df <- data.frame(classifier=rep(classif,nrow(measures)),
+                       measures=rownames(measures),
+                       measures, row.names = NULL)
+  report <- rbind(report,tmp.df)
 }
+
+# Write as CVS for DTM dataframe for 3rd party testing
+write.csv2(report, file=.RPRT.FILEPATH, fileEncoding=.DATA.ENCODING, 
+           row.names=F)
