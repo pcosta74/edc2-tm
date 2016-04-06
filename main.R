@@ -13,6 +13,7 @@ source(file.path('.','text-mining.R'))
 # *************************************************
 # Configuration
 
+.DATA.STEMMING <- FALSE
 .DATA.TOKENIZE <- match.enum('words',.TOKEN.FUN)
 .DATA.WEIGHTIN <- match.enum('tf',.WEIGH.FUN)
 
@@ -118,7 +119,8 @@ data <- read.data(.DATA.FILEPATH, .DATA.ENCODING, trace=F)
 # Create corpus
 cat('Create corpus','\n')
 mapping <- list(id = "Autor", content = "Poema")
-corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, trace=F, stem=T)
+corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, 
+                         trace=F, stem=.DATA.STEMMING)
 
 # Decide on the weighting method
 weight.FUN <- switch(
@@ -126,7 +128,7 @@ weight.FUN <- switch(
   'tf'=weightTf,
   'tfidf'=weightTfIdf,
   'bin'=weightBin,
-  'smart'=weightSmart,
+  'smart'=weightSMART,
   stop('Invalid weighting function')
 )
 
@@ -141,9 +143,10 @@ token.FUN <- switch(
 
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
-dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, stem=T,
-                               minWordLength=2, minDocFreq=2, 
-                               stemDocument=TRUE, weighting=weight.FUN,
+dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
+                               stem=.DATA.STEMMING, minWordLength=2,
+                               minDocFreq=2, stemDocument=TRUE,
+                               weighting=weight.FUN,
                                tokenize=token.FUN)
 
 # Create formula
@@ -152,6 +155,7 @@ c.form <- create.dtm.formula(dtm.df)
 # Determine word frequences
 freq <- aggregate(. ~ class, data = dtm.df, sum)
 freq <- as.data.frame(t(freq[,-1]))
+rownames(freq) <- gsub('\\.','',rownames(freq))
 colnames(freq) <- levels(dtm.df$class)
 
 # Write as CVS the frequency table for 3rd party testing
@@ -165,24 +169,23 @@ for(i in 1:ncol(freq)) {
   clas.freq <- matrix(freq[,i],dimnames=list(rownames(freq),NULL))
   
   clas.freq <- sort(rowSums(clas.freq), decreasing=TRUE)
-  clas.freq <- data.frame(word=names(clas.freq), freq=clas.freq,
-                          row.names = NULL)
+  clas.freq <- data.frame(word=names(clas.freq),
+                          freq=clas.freq, row.names = NULL)
   cat('50 most frequent words for', colnames(freq)[i],'\n')
   print(head(clas.freq, 50))
 
-
   # Draw wordcloud
+  filename <- gsub('%AUTHOR%',
+                   abbreviate(toupper(colnames(freq)[i]),6),
+                   .CLDW.FILEPATH)
   tryCatch({
-    filename <- gsub('%AUTHOR%',abbreviate(colnames(freq)[i],2),
-                     .CLDW.FILEPATH)
     png(filename, antialias='subpixel',width=640, height=640, res=100)
     
     plot.new()
-    title(colnames(freq)[i], outer=T)
+    title(colnames(freq)[i], line=-1)
     wordcloud(words = clas.freq$word, freq = clas.freq$freq, min.freq = 1,
               max.words=100, random.order=FALSE, rot.per=0.35, 
               colors=brewer.pal(8, "Dark2"))
-    
     dev.off()
   },
   error=function(err){
