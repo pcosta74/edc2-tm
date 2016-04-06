@@ -15,7 +15,7 @@ source(file.path('.','text-mining.R'))
 
 .DATA.STEMMING <- FALSE
 .DATA.TOKENIZE <- match.enum('words',.TOKEN.FUN)
-.DATA.WEIGHTIN <- match.enum('tf',.WEIGH.FUN)
+.DATA.WEIGHTIN <- match.enum('tfidf',.WEIGH.FUN)
 
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
