@@ -22,6 +22,8 @@ source(file.path('.','text-mining.R'))
 .DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
 .CLDW.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'%AUTHOR%_cloudword.png',sep="-"))
+.CRPS.FILEPATH <- file.path('.','data',
+                            paste('corpus.csv',sep="-"))
 .DTMX.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'docterm_matrix.csv',sep="-"))
 .FREQ.FILEPATH <- file.path('.','data',
@@ -122,6 +124,13 @@ mapping <- list(id = "Autor", content = "Poema")
 corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, 
                          trace=F, stem=.DATA.STEMMING)
 
+corp.df <- data.frame(corpus=sapply(corpus, function(c) c$content),
+                      row.names = NULL)
+# Write corpus as CVS for 3rd party testing
+write.csv2(corp.df, file=.CRPS.FILEPATH, fileEncoding=.DATA.ENCODING, 
+           row.names=F)
+
+
 # Decide on the weighting method
 weight.FUN <- switch(
   as.character(.DATA.WEIGHTIN),
@@ -195,7 +204,7 @@ for(i in 1:ncol(freq)) {
 }
 
 # Garbage collection
-rm(list=c('data', 'mapping', 'corpus', 'freq'))
+rm(list=c('data', 'mapping', 'corpus', 'corp.df', 'freq'))
 
 # Write as CVS for DTM dataframe for 3rd party testing
 write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING, 
