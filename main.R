@@ -13,7 +13,7 @@ source(file.path('.','text-mining.R'))
 # *************************************************
 # Configuration
 
-.DATA.STEMMING <- FALSE
+.DATA.STEMMING <- TRUE
 .DATA.TOKENIZE <- match.enum('words',.TOKEN.FUN)
 .DATA.WEIGHTIN <- match.enum('tfidf',.WEIGH.FUN)
 
@@ -153,8 +153,9 @@ token.FUN <- switch(
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
 dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
-                               stem=.DATA.STEMMING, minWordLength=2,
-                               minDocFreq=2, stemDocument=TRUE,
+                               stem=.DATA.STEMMING, wordLengths=c(4,Inf),
+                               bounds = list(global = c(4,Inf)),
+                               stemDocument=TRUE,
                                weighting=weight.FUN,
                                tokenize=token.FUN)
 

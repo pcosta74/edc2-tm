@@ -13,17 +13,15 @@ create.corpus <- function(dataframe, mapping, language="en",
   
   if(pre.process) {
     # Pre-processing
-    skipWords <- function(x) removeWords(x, stopwords(kind=language))
-    stemDocs  <- function(x) stemDocument(x, language=language)
-    
-    functions <- list(content_transformer(tolower), 
-                      skipWords, stripWhitespace,
+    stemDocs  <- function(x) stemDocument(x, language=meta(x,language))
+    functions <- list(content_transformer(tolower), stripWhitespace,
                       removePunctuation, removeNumbers)
     if(stem) {
       functions <- append(functions, stemDocs)
     }
-    
+  
     corpus <- tm_map(corpus, FUN=tm_reduce, tmFuns = functions)
+    corpus <- tm_map(corpus, removeWords, stopwords(kind=language))
   }
   
   if(trace) {
