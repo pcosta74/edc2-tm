@@ -13,9 +13,11 @@ source(file.path('.','text-mining.R'))
 # *************************************************
 # Configuration
 
-.DATA.STEMMING <- TRUE
+.DATA.STEMMING <- FALSE
+.DATA.MINWRDLN <- 4
+.DATA.MINBOUND <- 4
 .DATA.TOKENIZE <- match.enum('words',.TOKEN.FUN)
-.DATA.WEIGHTIN <- match.enum('tfidf',.WEIGH.FUN)
+.DATA.WEIGHTIN <- match.enum('smart',.WEIGH.FUN)
 
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
@@ -153,8 +155,9 @@ token.FUN <- switch(
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
 dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=0.99, 
-                               stem=.DATA.STEMMING, wordLengths=c(4,Inf),
-                               bounds = list(global = c(4,Inf)),
+                               stem=.DATA.STEMMING, 
+                               wordLengths=c(.DATA.MINWRDLN,Inf),
+                               bounds = list(global = c(.DATA.MINBOUND,Inf)),
                                stemDocument=TRUE,
                                weighting=weight.FUN,
                                tokenize=token.FUN)
