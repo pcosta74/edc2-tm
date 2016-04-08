@@ -9,7 +9,8 @@ create.corpus <- function(dataframe, mapping, language="en",
   # Create corpus
   readTab <- readTabular(mapping)
   corpus  <- Corpus(DataframeSource(dataframe), 
-                    readerControl = list(reader = readTab, language = language))
+                    readerControl = list(reader = readTab, 
+                                         language = language))
   
   if(pre.process) {
     # Pre-processing
@@ -58,17 +59,18 @@ create.dtm.dataframe <- function(corpus, sparse=0.95, min.info=0.01, stem=F, tra
   dtm.df  <- as.data.frame(as.matrix(dtm.mx))
   rownames(dtm.df) <- 1:nrow(dtm.mx)
   
-  if(stem) {
+  # Append "." to the end of terms to prevent errors in formula construction
+  if(stem)
     colnames(dtm.df) <- paste(colnames(dtm.df),'',sep='.')
-  }
-  
-  # Append class column
-  class <- sapply(corpus, function(x) x$meta$id)
-  dtm.df  <- cbind(dtm.df, class)
+
   
   # Prune non-informtive terms
   if(!missing(min.info))
     dtm.df <- dtm.df[,findInformativeTerms(dtm.df, min.info)]
+  
+  # Append class column
+  class <- sapply(corpus, function(x) x$meta$id)
+  dtm.df  <- cbind(dtm.df, class)
   
   if(trace) {
   }

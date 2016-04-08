@@ -47,9 +47,15 @@ read.data <- function(filepath, encoding='UTF-8', trace=F) {
 # *************************************************
 # Make string "Camel Case"
 
-camel.case<-function(x) {
+camel.case <-function(x) {
   gsub('(\\w)(\\w*)', '\\U\\1\\L\\2', as.character(x), perl=TRUE)
 } # End camel.case
+
+# *************************************************
+# Count words in string
+word.count <- function(x) {
+  sapply(gregexpr("\\W+", x), length) + 1
+}
 
 # *************************************************
 # Create enumeration
