@@ -22,7 +22,7 @@ source(file.path('.','text-mining.R'))
 
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
-.DATA.FILEPATH <- file.path('.','data','dset_FPessoa.csv')
+.DATA.FILEPATH <- file.path('.','data','FPessoa_NormRR_EqualFreq_08Abr.csv')
 .CLDW.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'%AUTHOR%_cloudword.png',sep="-"))
 .CRPS.FILEPATH <- file.path('.','data',
@@ -215,15 +215,17 @@ write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING,
 
 # List of classifiers to use
 .CLASSIFIERS <- list(
-  'RPART'   = list(cv.rpart, c.form, dtm.df),
-  'NNET'    = list(cv.nnet, c.form, dtm.df, size=2, trace=F, rang=0.1,
-                   decay=5e-4, maxit=200, MaxNWts = 2000),
-  'SVM'     = list(cv.svm, c.form, dtm.df),
-  'RAD.SVM' = list(cv.svm, c.form, dtm.df, kernel='radial', cost=50),
-  'NBAYES'  = list(cv.naivebayes, c.form, dtm.df),
-  'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df, use.weka=T),
-  '1NN'     = list(cv.knn, c.form, dtm.df, k=1),
-  'KNN'     = list(cv.knn, c.form, dtm.df, k=3)
+  'RPART'   = list(cv.rpart, c.form, dtm.df, seed=7919),
+  'FOREST'  = list(cv.rforest, c.form, dtm.df, seed=7919),
+  'NNET'    = list(cv.nnet, c.form, dtm.df, seed=7919, 
+                   size=2, trace=F, rang=0.1,
+                   decay=5e-4, maxit=200, MaxNWts = 2500),
+  'SVM'     = list(cv.svm, c.form, dtm.df, seed=7919, kernel='polynomial', degree=1, gamma=1),
+  'RAD.SVM' = list(cv.svm, c.form, dtm.df, seed=7919, kernel='radial', cost=50),
+  'NBAYES'  = list(cv.naivebayes, c.form, dtm.df, seed=7919),
+  'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df, seed=7919, use.weka=T),
+  '1NN'     = list(cv.knn, c.form, dtm.df, seed=7919, k=1),
+  'KNN'     = list(cv.knn, c.form, dtm.df, seed=7919, k=3)
 )
 
 report <- data.frame()
