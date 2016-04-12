@@ -1,4 +1,5 @@
 library('tm')
+library('SnowballC')
 
 
 # *************************************************
@@ -54,6 +55,7 @@ create.dtm.dataframe <- function(corpus, sparse=0.95, min.info=0.01, stem=F, tra
   # Remove sparse terms
   if(!missing(sparse))
     dtm.mx  <- removeSparseTerms(dtm.mx, sparse)
+  
   
   # Convert DTM to dataframe
   dtm.df  <- as.data.frame(as.matrix(dtm.mx))
