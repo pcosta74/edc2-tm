@@ -153,12 +153,17 @@ token.FUN <- switch(
 
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
+
+# weightAbsFreq <- WeightFunction(function(m) m,
+#                                "absolute frequency", "absfreq")
+
 dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=.DATA.SPARCITY, 
                                stem=.DATA.STEMMING,
                                wordLengths=c(.DATA.MINWRDLN,Inf),
                                bounds = list(global = c(.DATA.MINBOUND,Inf)),
                                stemDocument=TRUE,
                                weighting=weight.FUN,
+                               #weighting=weightCutBin,
                                tokenize=token.FUN)
 
 # Create formula
@@ -173,7 +178,7 @@ colnames(freq) <- levels(dtm.df$class)
 # Write as CVS the frequency table for 3rd party testing
 write.csv2(dtm.df, file=.FREQ.FILEPATH, fileEncoding=.DATA.ENCODING, 
            row.names=F)
-
+stop()
 layout(matrix(c(1, 2), nrow=2), heights=c(.5, 10))
 par(oma=c(0,0,4,0), mai=rep(0,4))
 for(i in 1:ncol(freq)) {
