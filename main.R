@@ -1,4 +1,5 @@
 library(wordcloud)
+library(RColorBrewer)
 
 source(file.path('.','cross-validation.R'))
 source(file.path('.','information.R'))
@@ -100,7 +101,7 @@ boxplot.word.count <- function(x, t) {
   axis(1, at=x.ticks, cex.axis=0.7, 
        labels=sub('\\s+','\n',as.character(levels(x$class))))
   axis(2, at=y.ticks, cex.axis=0.7, las=1)
-  title(main=t$main, xlab=t$x, ylab=t$y)
+  title(main=t$main) #, xlab=t$x, ylab=t$y)
 } #
 
 # *************************************************
@@ -110,11 +111,22 @@ boxplot.word.count <- function(x, t) {
 cat('Load data','\n')
 data <- read.data(.DATA.FILEPATH, .DATA.ENCODING, trace=F)
 
-layout(matrix(c(1,2), ncol=2), widths=c(1, 1), heights=c(1.5,1.5), respect = TRUE)
+par(mai=rep(.5,4), oma = c(2,2,0,0))
+layout(matrix(c(1,3,2,4), ncol=2), respect = T,
+       widths=rep(.5, 4), heights=rep(.5, 4))
 
-# Boxplot word.count
-df<-data.frame(class=data$Autor, count=sapply(data$Poema,word.count))
-boxplot.word.count(df,list(main='Raw data', x='Author', y='Words'))
+filenames <- c('FPessoa_08Abr.csv',
+               'FPessoa_NormRR_08Abr.csv',
+               'FPessoa_NormRR_EqualFreq_08Abr.csv')
+titles    <- c('Original',
+               'RR concatenados',
+               'Distribuição Igual')
+
+for(n in seq_along(filenames)) {
+  ds <- read.data(file.path('.','data', filenames[n]),.DATA.ENCODING)
+  df <- data.frame(class=ds$Autor, count=sapply(ds$Poema,word.count))
+  boxplot.word.count(df,list(main=titles[n]))
+}
 
 # Create corpus
 cat('Create corpus','\n')
@@ -126,11 +138,20 @@ corp.df <- data.frame(class=sapply(corpus, function(c) c$meta$id),
                       corpus=sapply(corpus, function(c) c$content),
                       count=sapply(corpus, function(c) word.count(c$content)),
                       row.names = NULL)
+
+# Boxplot word.count after cleaning
+boxplot.word.count(corp.df,list(main='Corpus', x='Author', y='Words'))
+title(xlab = 'Autor',
+      outer=TRUE,
+      line=-.5)
+title(ylab = 'Termos', 
+      outer=TRUE,
+      line=-4)
+stop()
+
 # Write corpus as CVS for 3rd party testing
 write.csv2(corp.df, file=.CRPS.FILEPATH, fileEncoding=.DATA.ENCODING, 
            row.names=F)
-# Boxplot word.count after cleaning
-boxplot.word.count(corp.df,list(main='Corpus data', x='Author', y='Words'))
 
 # Decide on the weighting method
 weight.FUN <- switch(
