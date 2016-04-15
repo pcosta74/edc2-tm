@@ -3,6 +3,8 @@ library(rpart)
 library(nnet)
 library(e1071)
 library(RWeka)
+library(randomForest)
+library(sampling)
 
 # *************************************************
 # Generate sample sizes for k-fold cross validation
@@ -23,14 +25,28 @@ cv.sizes <- function(n, k=10) {
 # Generate testing sample indices for k-fold cross 
 # validation on a data set of size n
 
-cv.testing <- function(n, k=10) {
+cv.testing <- function(values, strats, seed, k=10) {
   indices <- list()
-  sizes   <- cv.sizes(n, k)
-  values  <- 1:n
+  sizes   <- cv.sizes(length(values), k)
+
+  if(!missing(seed)) {
+    set.seed(seed)
+  }
+  
   for (i in 1:k) {
-    # take a random sample of given size
-    s <- sample(values, sizes[i])
-    # append random sample to list of indices
+    if(missing(strats)) {
+      # take a sample of given size
+      s <- sort(sample(values, sizes[i]))
+    } else {
+      # verify strats length
+      stopifnot(length(values)==length(strats))
+      
+      # take a stratified sample of given size
+      s <- .stratified.sample(values, strats, sizes[i])
+      # remove sample from strats
+      strats <- strats[-which(values %in% s)]
+    }
+    # append sample to list of indices
     indices[[i]] <- s
     # remove sample from values
     values <- setdiff(values, s)
@@ -48,9 +64,17 @@ cv.testing <- function(n, k=10) {
 # formula: the formula for the classifier
 # folds: number of folds
 
-cross.validation <- function(CLASS.FUN, formula, data, folds=10, simplify=T, ...) {
-  test.indices <- cv.testing(dim(data)[1])
+cross.validation <- function(CLASS.FUN, formula, data, seed=NULL, folds=10, 
+                             simplify=T, stratify=T, ...) {
   class  <- all.vars(update(formula, .~0))
+  values <- 1:as.integer(dim(data)[1])
+  
+  if(stratify) {
+    test.indices <- cv.testing(values, strats=data[,class], seed=seed)
+  } else { 
+    test.indices <- cv.testing(values, seed=seed)
+  }
+  
   result <- list()
   for (i in 1:folds) {
     test.ndx <- test.indices[[i]]
@@ -77,6 +101,19 @@ cv.rpart <- function(formula, train, test, class, ...) {
   ))
 } # End function cv.rpart
 
+# *************************************************
+# Random Forest
+
+cv.rforest <- function(formula, train, test, class, ...) {
+  lvls  <- levels(train[[class]])
+  model <- randomForest(formula, train, ...)
+  pred  <- predict(model, test, type=class)
+  return(table(
+    factor(test[[class]], levels=lvls),
+    factor(pred, levels=lvls), 
+    dnn=list('actual','pred')
+  ))
+} # End function cv.rforest
 
 # *************************************************
 # Neural Network
@@ -140,3 +177,26 @@ cv.knn <- function(formula, train, test, class, k=3, ...) {
     dnn=list('actual','pred')
   ))
 } # End function cv.knn
+
+
+
+.stratified.sample <- function(x, strats, size, prob=NULL) {
+  # return if population equals sample size
+  if(size == length(x))
+    return(x)
+  
+  # build sample
+  x <- as.data.frame(x)
+  x <- cbind(x, strats)
+  c <- ncol(x)
+  l <- length(unique(strats))
+
+  adjust <- sample(1:l, size%%l)
+  v.size <- rep(size%/%l, l)
+  v.size[adjust] <- v.size[adjust]+1
+  
+  # return stratified sample
+  strats <- strata(x, stratanames=names(x[c]),
+            size=v.size, method="srswor", pik = prob)
+  return(x[rownames(strats),-c])
+}

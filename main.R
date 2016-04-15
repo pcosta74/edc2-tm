@@ -1,4 +1,5 @@
 library(wordcloud)
+library(RColorBrewer)
 
 source(file.path('.','cross-validation.R'))
 source(file.path('.','information.R'))
@@ -22,7 +23,7 @@ source(file.path('.','text-mining.R'))
 
 .DATA.ENCODING <- 'ISO-8859-1'
 .DATA.LANGUAGE <- 'portuguese'
-.DATA.FILEPATH <- file.path('.','data','dset_FPessoa_ALL_v3.csv')
+.DATA.FILEPATH <- file.path('.','data','FPessoa_NormRR_EqualFreq_08Abr.csv')
 .CLDW.FILEPATH <- file.path('.','data',
                             paste(.DATA.TOKENIZE,.DATA.WEIGHTIN,'%AUTHOR%_cloudword.png',sep="-"))
 .CRPS.FILEPATH <- file.path('.','data',
@@ -67,52 +68,41 @@ split.dataset <- function(data, n, class.col=ncol(data), random=F) {
 } # End function split.dataset
 
 # *************************************************
-# Build cube of 2x2 matrices per class
+# Get statistical measures of prediction
 
-as.array.cv.list <- function(x) {
-  clas.lbls <- rownames(x[[1]])
-  mtxs.lbls <- c('TRUE','FALSE')
-  arr.dims  <- c(length(x), length(clas.lbls), 
-                length(mtxs.lbls), length(mtxs.lbls))
-  dim.nams  <- list(NULL, clas.lbls, mtxs.lbls, mtxs.lbls)
+get.measures <- function(x) {
+  rx <- Reduce(`+`,x)
+  nn  <- length(diag(rx))
   
-  cube <- array(NA, arr.dims, dim.nams)
-  for(i in 1:length(x)) {
-    for(j in 1:nrow(x[[i]])) {
-      cube[i,j,,] <- c(x[[i]][j,j], sum(x[[i]][-j,j]), sum(x[[i]][j,-j]), sum(x[[i]][-j,-j]))
-    }
-  }
-  return(cube)
-} # End function as.cube
-
+  ac <- rep(sum(diag(rx))/sum(rx),nn)
+  pr <- diag(rx)/apply(rx,1,sum)
+  rc <- diag(rx)/apply(rx,2,sum)
+  f1 <- (2*pr*rc)/(pr+rc)
+  
+  measures <- matrix(c(ac,pr,rc,f1),4,nn,byrow=T)
+  measures <- cbind(measures,apply(measures,1,mean))
+  colnames(measures) <- c(colnames(rx),'Macro')
+  rownames(measures) <- c('accuracy','precision','recall','f1')
+  
+  return(measures)
+} # End function get.measures
 
 # *************************************************
 # Get statistical measures of prediction
 
-get.measures <- function(a) {
-  dims <- dim(a)
-  measures <- sapply(seq(dims[2]), function(j) {
-    class.meas <- sapply(seq(dims[1]), function(i) {
-      tp <- a[i,j,1,1]; fn <- a[i,j,2,1]
-      fp <- a[i,j,1,2]; tn <- a[i,j,2,2]
-      
-      ac <- (tp+tn)/(tp+fp+fn+tn)
-      pr <- tp/(tp+fp)
-      rc <- tp/(tp+fn)
-      f1 <- 2*pr*rc/(pr+rc)
-      
-      c(accuracy=ifelse(is.na(ac),0,ac), 
-        precision=ifelse(is.na(pr),0,pr),
-        recall=ifelse(is.na(rc),0,rc),
-        f1=ifelse(is.na(f1),0,f1))
-    })
-    apply(class.meas, 1, mean)
-  })
-  measures <- cbind(measures,apply(measures,1,mean))
-  colnames(measures) <- c(colnames(a),'Macro')
-  return(measures)
-} # End function get.measures
-
+boxplot.word.count <- function(x, t) {
+  n <- length(levels(x$class))
+  x.ticks <- 1:n
+  y.ticks <- pretty(0:max(x$count), n=10)
+  
+  boxplot(count ~ class, data=x, 
+          xaxt='n', yaxt='n', 
+          ylim=c(0,max(y.ticks)), cex.axis=0.7)
+  axis(1, at=x.ticks, cex.axis=0.7, 
+       labels=sub('\\s+','\n',as.character(levels(x$class))))
+  axis(2, at=y.ticks, cex.axis=0.7, las=1)
+  title(main=t$main) #, xlab=t$x, ylab=t$y)
+} #
 
 # *************************************************
 # Main
@@ -121,18 +111,47 @@ get.measures <- function(a) {
 cat('Load data','\n')
 data <- read.data(.DATA.FILEPATH, .DATA.ENCODING, trace=F)
 
+par(mai=rep(.5,4), oma = c(2,2,0,0))
+layout(matrix(c(1,3,2,4), ncol=2), respect = T,
+       widths=rep(.5, 4), heights=rep(.5, 4))
+
+filenames <- c('FPessoa_08Abr.csv',
+               'FPessoa_NormRR_08Abr.csv',
+               'FPessoa_NormRR_EqualFreq_08Abr.csv')
+titles    <- c('Original',
+               'RR concatenados',
+               'Distribuição Igual')
+
+for(n in seq_along(filenames)) {
+  ds <- read.data(file.path('.','data', filenames[n]),.DATA.ENCODING)
+  df <- data.frame(class=ds$Autor, count=sapply(ds$Poema,word.count))
+  boxplot.word.count(df,list(main=titles[n]))
+}
+
 # Create corpus
 cat('Create corpus','\n')
 mapping <- list(id = "Autor", content = "Poema")
 corpus  <- create.corpus(data, mapping, .DATA.LANGUAGE, 
                          trace=F, stem=.DATA.STEMMING)
 
-corp.df <- data.frame(corpus=sapply(corpus, function(c) c$content),
+corp.df <- data.frame(class=sapply(corpus, function(c) c$meta$id),
+                      corpus=sapply(corpus, function(c) c$content),
+                      count=sapply(corpus, function(c) word.count(c$content)),
                       row.names = NULL)
+
+# Boxplot word.count after cleaning
+boxplot.word.count(corp.df,list(main='Corpus', x='Author', y='Words'))
+title(xlab = 'Autor',
+      outer=TRUE,
+      line=-.5)
+title(ylab = 'Termos', 
+      outer=TRUE,
+      line=-4)
+stop()
+
 # Write corpus as CVS for 3rd party testing
 write.csv2(corp.df, file=.CRPS.FILEPATH, fileEncoding=.DATA.ENCODING, 
            row.names=F)
-
 
 # Decide on the weighting method
 weight.FUN <- switch(
@@ -155,12 +174,17 @@ token.FUN <- switch(
 
 # Create document term matrix dataframe
 cat('Create document term matrix','\n')
+
+# weightAbsFreq <- WeightFunction(function(m) m,
+#                                "absolute frequency", "absfreq")
+
 dtm.df <- create.dtm.dataframe(corpus, trace=TRUE, sparse=.DATA.SPARCITY, 
-                               stem=.DATA.STEMMING, 
+                               stem=.DATA.STEMMING,
                                wordLengths=c(.DATA.MINWRDLN,Inf),
                                bounds = list(global = c(.DATA.MINBOUND,Inf)),
                                stemDocument=TRUE,
                                weighting=weight.FUN,
+                               #weighting=weightCutBin,
                                tokenize=token.FUN)
 
 # Create formula
@@ -175,7 +199,7 @@ colnames(freq) <- levels(dtm.df$class)
 # Write as CVS the frequency table for 3rd party testing
 write.csv2(dtm.df, file=.FREQ.FILEPATH, fileEncoding=.DATA.ENCODING, 
            row.names=F)
-
+stop()
 layout(matrix(c(1, 2), nrow=2), heights=c(.5, 10))
 par(oma=c(0,0,4,0), mai=rep(0,4))
 for(i in 1:ncol(freq)) {
@@ -217,15 +241,21 @@ write.csv2(dtm.df, file=.DTMX.FILEPATH, fileEncoding=.DATA.ENCODING,
 
 # List of classifiers to use
 .CLASSIFIERS <- list(
-  'RPART'   = list(cv.rpart, c.form, dtm.df),
-  'NNET'    = list(cv.nnet, c.form, dtm.df, size=2, trace=F, rang=0.1,
-                   decay=5e-4, maxit=200, MaxNWts = 2000),
-  'SVM'     = list(cv.svm, c.form, dtm.df),
-  'RAD.SVM' = list(cv.svm, c.form, dtm.df, kernel='radial', cost=50),
-  'NBAYES'  = list(cv.naivebayes, c.form, dtm.df),
-  'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df,use.weka=T),
-  '1NN'     = list(cv.knn, c.form, dtm.df, k=1),
-  'KNN'     = list(cv.knn, c.form, dtm.df, k=3)
+  'RPART'   = list(cv.rpart, c.form, dtm.df, seed=7919),
+  'FOREST'  = list(cv.rforest, c.form, dtm.df, seed=7919),
+  'NNET'    = list(cv.nnet, c.form, dtm.df, seed=7919, 
+                   size=2, trace=F, rang=0.1,
+                   decay=5e-4, maxit=200, MaxNWts = 2500),
+  'SVM'     = list(cv.svm, c.form, dtm.df, seed=7919,
+                   type='C-classification', coef0=1,
+                   kernel='polynomial', degree=1, gamma=1, cost=2),
+  'RAD.SVM' = list(cv.svm, c.form, dtm.df, seed=7919, 
+                   kernel='radial', gamma = 0.0001, cost=5)
+  ,
+  'NBAYES'  = list(cv.naivebayes, c.form, dtm.df, seed=7919, laplace=3),
+  'WEKA.NB' = list(cv.naivebayes, c.form, dtm.df, seed=7919, use.weka=T),
+  '1NN'     = list(cv.knn, c.form, dtm.df, seed=7919, k=1),
+  'KNN'     = list(cv.knn, c.form, dtm.df, seed=7919, k=3)
 )
 
 report <- data.frame()
@@ -237,7 +267,7 @@ for(classif in names(.CLASSIFIERS)) {
   
   # Get statistics
   cat('Collect statistics','\n')
-  measures <- get.measures(as.array(results))
+  measures <- get.measures(results)
   
   tmp.df <- data.frame(classifier=rep(classif,nrow(measures)),
                        measures=rownames(measures),
